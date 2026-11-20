@@ -365,6 +365,31 @@ section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:re
     return lines.slice(0, 100);
   }
 
+  function slideTitle(slide) {
+    // The slide title is the first h1 or h2 of the slide.
+    const doc = new DOMParser().parseFromString(slide.html, "text/html");
+    const h = doc.querySelector("h1, h2");
+    if (h) h.querySelectorAll("br").forEach((br) => br.replaceWith(" "));
+    return h ? h.textContent.replace(/\s+/g, " ").trim().slice(0, 300) : "";
+  }
+
+  function sentence(text) { return /[.!?:]$/.test(text) ? text : text + "."; }
+
+  function readingLines(slide) {
+    const lines = notesLines(slide.notes);
+    const title = slideTitle(slide);
+    // Notes that already start with the title would read it twice.
+    if (title && !slide.notes.toLowerCase().startsWith(title.toLowerCase())) {
+      lines.unshift({ text: sentence(title), id: "title" });
+    }
+    // The first slide of a section also announces the section.
+    if (slide.section) {
+      const part = deck.slides.slice(0, deck.slides.indexOf(slide) + 1).filter((s) => s.section).length;
+      lines.unshift({ text: `Part ${part}. ${sentence(slide.section)}`, id: "section" });
+    }
+    return lines.slice(0, 100);
+  }
+
   function highlight(id) {
     const para = id ? id.split("-")[0] : null;
     notesBody.querySelectorAll("p[data-line]").forEach((p) => p.classList.toggle("reading", p.dataset.line === para));
@@ -398,7 +423,7 @@ section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:re
     const at = index, token = ++readToken;
     const rate = Number(rateIn.value);
     try {
-      await tts.speak(notesLines(slide.notes), { voice: voiceSel.value, rate });
+      await tts.speak(readingLines(slide), { voice: voiceSel.value, rate });
       // Move on only if this reading finished and nobody navigated or restarted meanwhile.
       if (autoIn.checked && token === readToken && index === at) advance(1);
     } catch (e) {

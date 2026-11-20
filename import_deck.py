@@ -61,8 +61,17 @@ def main(argv):
     # A slide file that the order leaves out shows last, as in Slides.
     ids = [i for i in order if i in present] + [i for i in present if i not in order]
 
+    starts = {}
+    for section in index.get("sections", {}).values():
+        description = " ".join(str(section.get("description", "")).split())
+        if section.get("start") and description:
+            starts[section["start"]] = description
+
     slides = []
+    section = None
     for slide_id in ids:
+        # A section that starts on a hidden slide starts on the next shown one.
+        section = starts.get(slide_id, section)
         raw = (slide_dir / f"{slide_id}.html").read_text(encoding="utf-8")
         if re.search(r"<section\b[^>]*\bhidden\b", raw, re.I):
             continue
@@ -71,7 +80,11 @@ def main(argv):
             print(f"warning: slide {slide_id} uses uploaded images; "
                   "copy them into the reader and rewrite their src",
                   file=sys.stderr)
-        slides.append({"id": slide_id, "html": body, "notes": notes})
+        slide = {"id": slide_id, "html": body, "notes": notes}
+        if section:
+            slide["section"] = section
+            section = None
+        slides.append(slide)
 
     faces = []
     for face in index.get("faces", {}).values():

@@ -30,7 +30,10 @@ slide.
 3. Publish `index.html` with the `tts` capability and
    `files: {"deck-data.json": "<scratch>/deck-data.json"}`.
 
-The notes come from each slide's `<aside>`. Hidden slides are skipped.
+The notes come from each slide's `<aside>`. Before the notes, the
+reader says the slide title, which is the first `<h1>` or `<h2>`. On the
+first slide of a section, it first says the part number and the section
+description from the deck's outline. Hidden slides are skipped.
 Reveal steps (`.fragment`) are all shown at once. Uploaded images
 (`/_blob/<id>`) are not carried over. The script warns about them.
 
