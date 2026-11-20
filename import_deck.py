@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Convert a downloaded Claude Slides deck into deck-data.json for the
-Notes Reader.
+Claude Presenter.
 
 The deck folder must hold the files at their served paths:
 

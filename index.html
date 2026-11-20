@@ -1,4 +1,4 @@
-<title>Notes Reader</title>
+<title>Claude Presenter</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
@@ -106,7 +106,7 @@ input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; m
 
 <div class="app">
   <header>
-    <h1 id="deck-title">Notes Reader</h1>
+    <h1 id="deck-title">Claude Presenter</h1>
     <span class="meta" id="deck-meta">Loading deck…</span>
   </header>
   <div class="layout">
@@ -198,7 +198,7 @@ input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; m
       return;
     }
     if (deck.size === "4:3") { canvasW = 1440; stage.style.aspectRatio = "4 / 3"; }
-    document.title = deck.title + " · Notes Reader";
+    document.title = deck.title + " · Claude Presenter";
     $("deck-title").textContent = deck.title;
     const meta = $("deck-meta");
     meta.textContent = deck.slides.length + " slides · ";

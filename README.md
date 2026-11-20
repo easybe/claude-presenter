@@ -1,4 +1,4 @@
-# Notes Reader
+# Claude Presenter
 
 A claude.ai artifact that shows a slide deck one slide at a time and
 reads each slide's speaker notes aloud in a Claude voice.
