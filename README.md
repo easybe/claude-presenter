@@ -3,15 +3,15 @@
 A claude.ai artifact that shows a slide deck and reads each slide's
 speaker notes aloud in a Claude voice.
 
-The reader is `index.html`. It shows the deck in `deck-data.json`, which
-is published next to it. An artifact page cannot load another artifact
-by its link. So the deck is copied into the reader.
+The presenter is `index.html`. It shows the deck in `deck-data.json`,
+which is published next to it. An artifact page cannot load another
+artifact by its link. So the deck is copied into the presenter.
 
 ## Presenting
 
 Start presentation shows the current slide full screen and reads its
-notes. With Auto-advance checked, the reader then moves on to the next
-slide.
+notes. With Auto-advance checked, the presenter then moves on to the
+next slide.
 
 - Next slide: click, right arrow, Space, Enter or Page Down
 - Previous slide: left arrow or Page Up
@@ -34,9 +34,9 @@ slide.
    `files: {"deck-data.json": "<scratch>/deck-data.json"}`.
 
 The notes come from each slide's `<aside>`. Before the notes, the
-reader says the slide title, which is the first `<h1>` or `<h2>`. On the
-first slide of a section, it first says the part number and the section
-description from the deck's outline. Hidden slides are skipped.
+presenter says the slide title, which is the first `<h1>` or `<h2>`. On
+the first slide of a section, it first says the part number and the
+section description from the deck's outline. Hidden slides are skipped.
 Reveal steps (`.fragment`) are all shown at once. Uploaded images
 (`/_blob/<id>`) are not carried over. The script warns about them.
 
