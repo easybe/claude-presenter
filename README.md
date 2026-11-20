@@ -43,3 +43,7 @@ The reader uses the `tts` artifact capability. It works in Chrome and
 Edge on claude.ai and in the main window of the Claude desktop app. In
 Safari, Firefox, the mobile apps and the Claude Code artifact pane the
 voice controls are hidden and the notes are shown as text only.
+
+## License
+
+MIT. See `LICENSE`.
