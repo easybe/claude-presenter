@@ -1,0 +1,482 @@
+<title>Notes Reader</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* The slide stage sits beside the notes on wide screens and above them on phones. The controls go under the stage. */
+:root {
+  --bg: #F3F4F6;
+  --surface: #FFFFFF;
+  --line: #D9DDE5;
+  --fg: #161C2B;
+  --muted: #5A6273;
+  --accent: #B4521A;
+  --accent-fg: #FFFFFF;
+  --accent-soft: #F7E6DA;
+  --stage: #E3E6EC;
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-head: 'Space Grotesk', 'Inter', system-ui, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12151C; --surface: #1B2029; --line: #2E3542; --fg: #E8EBF1; --muted: #A1A9B8;
+    --accent: #F0965A; --accent-fg: #1B1208; --accent-soft: #3A2718; --stage: #0B0D12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12151C; --surface: #1B2029; --line: #2E3542; --fg: #E8EBF1; --muted: #A1A9B8;
+  --accent: #F0965A; --accent-fg: #1B1208; --accent-soft: #3A2718; --stage: #0B0D12;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.app { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--font-head); font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; }
+.meta { color: var(--muted); font-size: 13px; }
+.meta a { color: inherit; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@media (min-width: 960px) { .layout { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; } }
+.stage-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.stage {
+  position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; background: var(--stage);
+  border-radius: 10px; overflow: hidden; border: 1px solid var(--line);
+}
+.stage iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; background: transparent; }
+.stage .empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.spacer { flex: 1; }
+button, select {
+  font: inherit; font-weight: 500; color: var(--fg); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 14px; cursor: pointer; min-height: 40px;
+}
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.counter { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 64px; text-align: center; }
+label.speed { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+label.speed output { font-variant-numeric: tabular-nums; min-width: 36px; color: var(--fg); }
+input[type=range] { accent-color: var(--accent); width: 110px; }
+.notes {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 10px; min-width: 0;
+}
+.notes h2 { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; display: flex; justify-content: space-between; gap: 8px; }
+.notes .state { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--accent); }
+.notes p { margin: 0; font-size: 16px; line-height: 1.6; max-width: 65ch; padding: 4px 8px; margin-inline: -8px; border-radius: 6px; transition: background-color .2s; }
+.notes p.reading { background: var(--accent-soft); }
+.notes .none { color: var(--muted); font-style: italic; }
+.notice { font-size: 13px; color: var(--muted); }
+.notice.warn { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .notes p { transition: none; } }
+
+/* Presenter mode shows the stage alone on a dark background, letterboxed to the viewport. */
+.show { position: fixed; inset: 0; z-index: 100; background: #050608; display: grid; place-items: center; color-scheme: dark;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+.show .stage { width: min(100%, calc((100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) * 16 / 9)); border: 0; border-radius: 0; background: #000; }
+.show.four-three .stage { width: min(100%, calc((100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) * 4 / 3)); }
+.show .hit { position: absolute; inset: 0; cursor: pointer; z-index: 1; }
+.show .hit.idle { cursor: none; }
+.show-bar {
+  position: absolute; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 2;
+  display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 10px;
+  background: rgba(20, 24, 32, .82); border: 1px solid rgba(255, 255, 255, .12); color: #E8EBF1;
+  transition: opacity .3s;
+}
+.show-bar.faded { opacity: 0; pointer-events: none; }
+.show-bar button { background: transparent; color: #E8EBF1; border-color: rgba(255, 255, 255, .18); min-height: 36px; padding: 6px 12px; }
+.show-bar button:hover:not(:disabled) { border-color: rgba(255, 255, 255, .5); }
+.show-bar .counter { color: #A1A9B8; }
+.show-bar .live { color: #F0965A; font-size: 13px; padding-inline: 6px; min-width: 64px; }
+.show-hint { position: absolute; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 2;
+  background: rgba(20, 24, 32, .82); color: #E8EBF1; padding: 8px 14px; border-radius: 8px; font-size: 13px; transition: opacity .4s; pointer-events: none; }
+.show-hint.faded { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .show-bar, .show-hint { transition: none; } }
+</style>
+
+<div class="app">
+  <header>
+    <h1 id="deck-title">Notes Reader</h1>
+    <span class="meta" id="deck-meta">Loading deck…</span>
+  </header>
+  <div class="layout">
+    <div class="stage-col">
+      <div class="stage" id="stage"><div class="empty" id="stage-empty">Loading deck…</div></div>
+      <div class="controls">
+        <div class="group">
+          <button type="button" id="prev" aria-label="Previous slide" disabled>← Prev</button>
+          <span class="counter" id="counter" aria-live="polite">– / –</span>
+          <button type="button" id="next" aria-label="Next slide" disabled>Next →</button>
+        </div>
+        <button type="button" class="primary" id="present" disabled>▶ Start presentation</button>
+        <div class="spacer"></div>
+        <div class="group" id="speech-controls" hidden>
+          <button type="button" id="read" disabled>Read notes</button>
+          <button type="button" id="pause" hidden>Pause</button>
+          <button type="button" id="stop" hidden>Stop</button>
+          <select id="voice" aria-label="Voice">
+            <option value="buttery">Buttery</option>
+            <option value="airy">Airy</option>
+            <option value="glassy">Glassy</option>
+            <option value="rounded">Rounded</option>
+          </select>
+          <label class="speed" for="rate">Speed
+            <input type="range" id="rate" min="0.7" max="1.5" step="0.05" value="1">
+            <output id="rate-out" for="rate">1.00×</output>
+          </label>
+        </div>
+      </div>
+      <p class="notice" id="notice" hidden></p>
+    </div>
+    <section class="notes" aria-labelledby="notes-heading">
+      <h2><span id="notes-heading">Speaker notes</span><span class="state" id="speech-state"></span></h2>
+      <div id="notes-body"><p class="none">No slide loaded.</p></div>
+    </section>
+  </div>
+</div>
+
+<div class="show" id="show" hidden role="dialog" aria-modal="true" aria-label="Presentation">
+  <div class="stage-slot" id="show-slot"></div>
+  <div class="hit" id="show-hit" title="Click for next slide"></div>
+  <div class="show-hint" id="show-hint">Click or → for the next slide · ← back · Esc to stop or exit</div>
+  <div class="show-bar" id="show-bar">
+    <span class="live" id="show-live" aria-live="polite"></span>
+    <button type="button" id="show-pause" hidden>Pause</button>
+    <button type="button" id="show-stop" hidden>Stop</button>
+    <button type="button" id="show-prev" aria-label="Previous slide">←</button>
+    <span class="counter" id="show-counter">– / –</span>
+    <button type="button" id="show-next" aria-label="Next slide">→</button>
+    <button type="button" id="show-exit">Exit</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const stage = $("stage"), notesBody = $("notes-body");
+  const readBtn = $("read"), pauseBtn = $("pause"), stopBtn = $("stop");
+  const voiceSel = $("voice"), rateIn = $("rate"), rateOut = $("rate-out");
+  const notice = $("notice"), speechState = $("speech-state");
+
+  let deck = null, index = 0, frame = null, canvasW = 1920, canvasH = 1080;
+  let tts = null, state = "idle", readingSlide = -1;
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+
+  function showNotice(text, warn) {
+    notice.textContent = text || "";
+    notice.hidden = !text;
+    notice.classList.toggle("warn", !!warn);
+  }
+
+  async function loadDeck() {
+    try {
+      const res = await fetch("deck-data.json", { cache: "no-cache" });
+      if (!res.ok) throw new Error(res.status);
+      deck = await res.json();
+      if (!deck || !Array.isArray(deck.slides) || !deck.slides.length) throw new Error("empty");
+    } catch {
+      deck = null;
+      $("stage-empty").textContent = "No deck loaded. Ask Claude to import a Slides deck into this reader.";
+      $("deck-meta").textContent = "No deck";
+      return;
+    }
+    if (deck.size === "4:3") { canvasW = 1440; stage.style.aspectRatio = "4 / 3"; }
+    document.title = deck.title + " · Notes Reader";
+    $("deck-title").textContent = deck.title;
+    const meta = $("deck-meta");
+    meta.textContent = deck.slides.length + " slides · ";
+    if (deck.source) {
+      const a = document.createElement("a");
+      a.href = deck.source; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Open original deck";
+      meta.append(a);
+    } else meta.textContent = deck.slides.length + " slides";
+    $("present").disabled = false;
+    const fromHash = /^#slide-(\d+)$/.exec(location.hash);
+    go(fromHash ? Number(fromHash[1]) - 1 : 0);
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  function slideDoc(slide) {
+    // Show every reveal step. The reader has no clicks to advance fragments.
+    const doc = new DOMParser().parseFromString(slide.html, "text/html");
+    doc.querySelectorAll(".fragment").forEach((el) => el.classList.add("visible"));
+    doc.querySelectorAll("section[hidden]").forEach((el) => el.removeAttribute("hidden"));
+    const links = (deck.faces || []).map((h) => `<link rel="stylesheet" href="${esc(h)}">`).join("");
+    return `<!doctype html><html><head><meta charset="utf-8">${links}
+<style>html,body{margin:0;width:${canvasW}px;height:${canvasH}px;overflow:hidden}
+section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:relative;overflow:hidden}</style>
+<style>${deck.css || ""}</style></head><body>${doc.body.innerHTML}</body></html>`;
+  }
+
+  function fit() {
+    if (!frame) return;
+    const scale = stage.clientWidth / canvasW;
+    frame.style.transform = `scale(${scale})`;
+  }
+  new ResizeObserver(fit).observe(stage);
+
+  function renderNotes(slide) {
+    notesBody.replaceChildren();
+    const paras = slide.notes ? slide.notes.split(/\n\s*\n/) : [];
+    if (!paras.length) {
+      const p = document.createElement("p");
+      p.className = "none"; p.textContent = "This slide has no speaker notes.";
+      notesBody.append(p);
+      return;
+    }
+    paras.forEach((t, i) => {
+      const p = document.createElement("p");
+      p.textContent = t; p.dataset.line = "p" + i;
+      notesBody.append(p);
+    });
+  }
+
+  function go(i, opts) {
+    if (!deck) return;
+    i = Math.max(0, Math.min(deck.slides.length - 1, i));
+    const speakNext = opts && opts.read && canSpeak() && deck.slides[i].notes;
+    // speak() replaces a running reading itself. Only stop when nothing new starts.
+    if (tts && state !== "idle" && !speakNext) tts.stop().catch(() => {});
+    index = i;
+    const slide = deck.slides[i];
+    const f = document.createElement("iframe");
+    f.setAttribute("sandbox", "");
+    f.setAttribute("title", "Slide " + (i + 1));
+    f.width = canvasW; f.height = canvasH;
+    f.srcdoc = slideDoc(slide);
+    stage.replaceChildren(f);
+    frame = f; fit();
+    renderNotes(slide);
+    $("counter").textContent = `${i + 1} / ${deck.slides.length}`;
+    $("prev").disabled = i === 0;
+    $("next").disabled = i === deck.slides.length - 1;
+    readBtn.disabled = !slide.notes;
+    $("show-counter").textContent = `${i + 1} / ${deck.slides.length}`;
+    $("show-prev").disabled = i === 0;
+    $("show-next").disabled = i === deck.slides.length - 1;
+    try { history.replaceState(null, "", "#slide-" + (i + 1)); } catch {}
+    if (speakNext) read();
+  }
+
+  function canSpeak() { return !!tts && !$("speech-controls").hidden; }
+
+  // Past either end of the deck nothing happens, so the last slide isn't read twice.
+  function advance(step) {
+    const target = index + step;
+    if (!deck || target < 0 || target >= deck.slides.length) return;
+    go(target, { read: true });
+  }
+
+  const show = $("show"), showBar = $("show-bar"), showHit = $("show-hit"), showHint = $("show-hint");
+  const stageHome = stage.parentElement, stageNext = stage.nextElementSibling;
+  let presenting = false, idleTimer = 0, hintTimer = 0;
+
+  function wake() {
+    showBar.classList.remove("faded");
+    showHit.classList.remove("idle");
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      // Keep our own Stop in view while the voice is running.
+      if (state !== "idle") return;
+      showBar.classList.add("faded");
+      showHit.classList.add("idle");
+    }, 2500);
+  }
+
+  function startPresentation() {
+    if (!deck || presenting) return;
+    presenting = true;
+    show.classList.toggle("four-three", deck.size === "4:3");
+    $("show-slot").replaceWith(stage);
+    show.hidden = false;
+    document.documentElement.style.overflow = "hidden";
+    // Fullscreen is optional. Phones and some app views refuse it.
+    try { const p = show.requestFullscreen && show.requestFullscreen(); if (p) p.catch(() => {}); } catch {}
+    showHint.classList.remove("faded");
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => showHint.classList.add("faded"), 4000);
+    wake();
+    // Keys go to the presentation, not the button behind the overlay.
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    go(index, { read: true });
+  }
+
+  function endPresentation() {
+    if (!presenting) return;
+    presenting = false;
+    if (tts && state !== "idle") tts.stop().catch(() => {});
+    const slot = document.createElement("div");
+    slot.id = "show-slot"; slot.className = "stage-slot";
+    stage.replaceWith(slot);
+    stageHome.insertBefore(stage, stageNext);
+    show.hidden = true;
+    document.documentElement.style.overflow = "";
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    fit();
+    $("present").focus();
+  }
+
+  $("present").addEventListener("click", startPresentation);
+  $("show-exit").addEventListener("click", endPresentation);
+  showHit.addEventListener("click", () => { wake(); advance(1); });
+  $("show-next").addEventListener("click", () => { wake(); advance(1); });
+  $("show-prev").addEventListener("click", () => { wake(); advance(-1); });
+  $("show-pause").addEventListener("click", () => {
+    if (tts) (state === "paused" ? tts.resume() : tts.pause()).catch(() => {});
+  });
+  $("show-stop").addEventListener("click", () => { if (tts) tts.stop().catch(() => {}); });
+  show.addEventListener("mousemove", wake);
+
+  $("prev").addEventListener("click", () => go(index - 1));
+  $("next").addEventListener("click", () => go(index + 1));
+
+  function notesLines(text) {
+    const lines = [];
+    text.split(/\n\s*\n/).forEach((para, i) => {
+      // A line holds at most 2,000 characters. Long paragraphs are split at sentence ends.
+      let rest = para.trim(), part = 0;
+      while (rest.length > 2000) {
+        let cut = rest.lastIndexOf(". ", 1990);
+        if (cut < 500) cut = rest.lastIndexOf(" ", 1990);
+        if (cut < 1) cut = 1990;
+        lines.push({ text: rest.slice(0, cut + 1).trim(), id: `p${i}-${part++}` });
+        rest = rest.slice(cut + 1);
+      }
+      if (rest) lines.push({ text: rest, id: `p${i}-${part}` });
+    });
+    return lines.slice(0, 100);
+  }
+
+  function highlight(id) {
+    const para = id ? id.split("-")[0] : null;
+    notesBody.querySelectorAll("p[data-line]").forEach((p) => p.classList.toggle("reading", p.dataset.line === para));
+  }
+
+  function setState(s) {
+    state = s;
+    const active = s !== "idle";
+    pauseBtn.hidden = stopBtn.hidden = !active;
+    pauseBtn.textContent = s === "paused" ? "Resume" : "Pause";
+    readBtn.textContent = active ? "Restart" : "Read notes";
+    speechState.textContent = { starting: "Starting…", speaking: "Reading", paused: "Paused" }[s] || "";
+    $("show-pause").hidden = $("show-stop").hidden = !active;
+    $("show-pause").textContent = pauseBtn.textContent;
+    $("show-live").textContent = speechState.textContent;
+    if (presenting) wake();
+    if (!active) { highlight(null); readingSlide = -1; }
+  }
+
+  function hideSpeech(text) {
+    $("speech-controls").hidden = true;
+    showNotice(text, false);
+  }
+
+  async function read() {
+    if (!tts || !deck) return;
+    const slide = deck.slides[index];
+    if (!slide.notes) return;
+    showNotice("");
+    readingSlide = index;
+    const rate = Number(rateIn.value);
+    try {
+      await tts.speak(notesLines(slide.notes), { voice: voiceSel.value, rate });
+    } catch (e) {
+      const code = e && e.code;
+      if (code === "stopped") return;
+      if (code === "not_granted") hideSpeech("Reading aloud is turned off for this page. The notes stay readable here.");
+      else if (code === "unavailable") hideSpeech("Reading aloud isn’t available right now. The notes stay readable here.");
+      else if (code === "rate_limited") showNotice("Too much reading for now. Try again in a little while.", true);
+      else if (code === "busy") showNotice("Finish dictating first, then press Read notes again.", true);
+      else if (code === "no_gesture") showNotice("Press Read notes again to start.", true);
+      else showNotice("The voice stopped because of an error. Press Read notes to try again.", true);
+    }
+  }
+
+  readBtn.addEventListener("click", read);
+  pauseBtn.addEventListener("click", () => {
+    if (!tts) return;
+    (state === "paused" ? tts.resume() : tts.pause()).catch(() => {});
+  });
+  stopBtn.addEventListener("click", () => { if (tts) tts.stop().catch(() => {}); });
+
+  rateIn.addEventListener("input", () => {
+    const r = Number(rateIn.value);
+    rateOut.textContent = r.toFixed(2) + "×";
+    store.set("notes-reader-rate", String(r));
+    if (tts && tts.setRate) tts.setRate(r).catch(() => {});
+  });
+  voiceSel.addEventListener("change", () => store.set("notes-reader-voice", voiceSel.value));
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input, select, textarea")) return;
+    if (presenting) {
+      const onButton = e.target.closest && e.target.closest("button");
+      if (["ArrowRight", "PageDown", "Enter", " "].includes(e.key)) {
+        if (onButton && (e.key === " " || e.key === "Enter")) return;
+        e.preventDefault(); wake(); advance(1);
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        e.preventDefault(); wake(); advance(-1);
+      } else if (e.key === "Escape" && state === "idle") {
+        // While the voice runs, Escape is left to the platform, which stops it.
+        e.preventDefault(); endPresentation();
+      }
+      return;
+    }
+    if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); go(index + 1); }
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); go(index - 1); }
+    else if (e.key === " " && !(e.target.closest && e.target.closest("button"))) {
+      e.preventDefault();
+      if (!tts || $("speech-controls").hidden) return;
+      if (state === "idle") read();
+      else (state === "paused" ? tts.resume() : tts.pause()).catch(() => {});
+    }
+  });
+
+  window.addEventListener("hashchange", () => {
+    const m = /^#slide-(\d+)$/.exec(location.hash);
+    if (m && Number(m[1]) - 1 !== index) go(Number(m[1]) - 1);
+  });
+
+  async function initSpeech() {
+    const savedRate = Number(store.get("notes-reader-rate"));
+    if (savedRate >= 0.7 && savedRate <= 1.5) { rateIn.value = savedRate; rateOut.textContent = savedRate.toFixed(2) + "×"; }
+    const savedVoice = store.get("notes-reader-voice");
+    if (savedVoice && [...voiceSel.options].some((o) => o.value === savedVoice)) voiceSel.value = savedVoice;
+
+    try { tts = window.claude ? await window.claude.use("tts") : null; } catch { tts = null; }
+    if (!tts) {
+      showNotice("Reading aloud works in Chrome or Edge on claude.ai and in the Claude desktop app’s main window. The notes are shown here to read.", false);
+      return;
+    }
+    $("speech-controls").hidden = false;
+    if (tts.setRate) tts.setRate(Number(rateIn.value)).catch(() => {});
+    tts.onState(({ state: s, reason }) => {
+      setState(s);
+      if (s === "idle" && (reason === "not_granted" || reason === "unavailable")) {
+        hideSpeech(reason === "not_granted"
+          ? "Reading aloud is turned off for this page. The notes stay readable here."
+          : "Reading aloud isn’t available right now. The notes stay readable here.");
+      } else if (s === "idle" && reason === "upstream_error") {
+        showNotice("The voice stopped because of an error. Press Read notes to try again.", true);
+      }
+    });
+    tts.onLine(({ id }) => { if (readingSlide === index) highlight(id); });
+  }
+
+  loadDeck();
+  initSpeech();
+})();
+</script>
