@@ -65,6 +65,8 @@ button.primary { background: var(--accent); color: var(--accent-fg); border-colo
 label.speed { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
 label.speed output { font-variant-numeric: tabular-nums; min-width: 36px; color: var(--fg); }
 input[type=range] { accent-color: var(--accent); width: 110px; }
+label.auto { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; cursor: pointer; }
+input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
 .notes {
   background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px;
   display: flex; flex-direction: column; gap: 10px; min-width: 0;
@@ -132,6 +134,9 @@ input[type=range] { accent-color: var(--accent); width: 110px; }
             <input type="range" id="rate" min="0.7" max="1.5" step="0.05" value="1">
             <output id="rate-out" for="rate">1.00×</output>
           </label>
+          <label class="auto" for="auto" title="Go to the next slide when the notes are read">
+            <input type="checkbox" id="auto" checked> Auto-advance
+          </label>
         </div>
       </div>
       <p class="notice" id="notice" hidden></p>
@@ -163,11 +168,11 @@ input[type=range] { accent-color: var(--accent); width: 110px; }
   const $ = (id) => document.getElementById(id);
   const stage = $("stage"), notesBody = $("notes-body");
   const readBtn = $("read"), pauseBtn = $("pause"), stopBtn = $("stop");
-  const voiceSel = $("voice"), rateIn = $("rate"), rateOut = $("rate-out");
+  const voiceSel = $("voice"), rateIn = $("rate"), rateOut = $("rate-out"), autoIn = $("auto");
   const notice = $("notice"), speechState = $("speech-state");
 
   let deck = null, index = 0, frame = null, canvasW = 1920, canvasH = 1080;
-  let tts = null, state = "idle", readingSlide = -1;
+  let tts = null, state = "idle", readingSlide = -1, readToken = 0;
 
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -390,9 +395,12 @@ section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:re
     if (!slide.notes) return;
     showNotice("");
     readingSlide = index;
+    const at = index, token = ++readToken;
     const rate = Number(rateIn.value);
     try {
       await tts.speak(notesLines(slide.notes), { voice: voiceSel.value, rate });
+      // Move on only if this reading finished and nobody navigated or restarted meanwhile.
+      if (autoIn.checked && token === readToken && index === at) advance(1);
     } catch (e) {
       const code = e && e.code;
       if (code === "stopped") return;
@@ -419,6 +427,7 @@ section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:re
     if (tts && tts.setRate) tts.setRate(r).catch(() => {});
   });
   voiceSel.addEventListener("change", () => store.set("notes-reader-voice", voiceSel.value));
+  autoIn.addEventListener("change", () => store.set("notes-reader-auto", autoIn.checked ? "1" : "0"));
 
   document.addEventListener("keydown", (e) => {
     if (e.target.closest && e.target.closest("input, select, textarea")) return;
@@ -455,6 +464,7 @@ section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:re
     if (savedRate >= 0.7 && savedRate <= 1.5) { rateIn.value = savedRate; rateOut.textContent = savedRate.toFixed(2) + "×"; }
     const savedVoice = store.get("notes-reader-voice");
     if (savedVoice && [...voiceSel.options].some((o) => o.value === savedVoice)) voiceSel.value = savedVoice;
+    autoIn.checked = store.get("notes-reader-auto") !== "0";
 
     try { tts = window.claude ? await window.claude.use("tts") : null; } catch { tts = null; }
     if (!tts) {
