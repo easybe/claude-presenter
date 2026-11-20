@@ -10,9 +10,13 @@ The deck folder must hold the files at their served paths:
 
 Usage:
 
-    python3 -I import_deck.py <deck folder> <output.json> [source url]
+    python3 -I import_deck.py [--language TAG] <deck folder> <output.json> [source url]
+
+The language is a BCP 47 tag such as "de" or "pt-BR". The reader reads the
+notes in it. The default is "en".
 """
 
+import argparse
 import html
 import json
 import re
@@ -23,6 +27,7 @@ ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 ASIDE_RE = re.compile(r"<aside\b[^>]*>(.*?)</aside>\s*", re.S | re.I)
 TAG_RE = re.compile(r"<[^>]+>")
 BLOB_RE = re.compile(r"""(?:src|poster)=["']/?_blob/""", re.I)
+LANGUAGE_RE = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
 
 
 def notes_text(raw):
@@ -44,12 +49,27 @@ def split_slide(source):
     return body.strip(), notes_text(last.group(1))
 
 
+def language_tag(value):
+    """Check that value looks like a BCP 47 language tag."""
+    if not LANGUAGE_RE.match(value):
+        raise argparse.ArgumentTypeError(f"not a language tag: {value}")
+    return value
+
+
 def main(argv):
-    if len(argv) not in (3, 4):
-        sys.exit(__doc__)
-    root = Path(argv[1]) / "project"
-    out = Path(argv[2])
-    source_url = argv[3] if len(argv) == 4 else ""
+    parser = argparse.ArgumentParser(
+        description="Convert a downloaded Claude Slides deck into "
+                    "deck-data.json for the Claude Presenter.")
+    parser.add_argument("-l", "--language", type=language_tag, default="en",
+                        help='language of the notes, e.g. "de" (default: en)')
+    parser.add_argument("deck", type=Path, help="downloaded deck folder")
+    parser.add_argument("output", type=Path, help="deck-data.json to write")
+    parser.add_argument("source", nargs="?", default="",
+                        help="link to the original deck")
+    args = parser.parse_args(argv[1:])
+    root = args.deck / "project"
+    out = args.output
+    source_url = args.source
 
     index = json.loads((root / "deck.json").read_text(encoding="utf-8"))
     css_path = root / "deck.css"
@@ -95,6 +115,7 @@ def main(argv):
     data = {
         "title": index.get("title") or "Untitled deck",
         "source": source_url,
+        "language": args.language,
         "size": index.get("size", "16:9"),
         "css": css,
         "faces": faces,
@@ -103,7 +124,8 @@ def main(argv):
     out.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n",
                    encoding="utf-8")
     with_notes = sum(1 for s in slides if s["notes"])
-    print(f"{out}: {len(slides)} slides, {with_notes} with notes")
+    print(f"{out}: {len(slides)} slides, {with_notes} with notes, "
+          f"language {args.language}")
 
 
 if __name__ == "__main__":

@@ -423,7 +423,9 @@ section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:re
     const at = index, token = ++readToken;
     const rate = Number(rateIn.value);
     try {
-      await tts.speak(readingLines(slide), { voice: voiceSel.value, rate });
+      // Without a language, the platform guesses it per line, which fails on short lines.
+      const language = deck.language || "en";
+      await tts.speak(readingLines(slide), { voice: voiceSel.value, rate, language });
       // Move on only if this reading finished and nobody navigated or restarted meanwhile.
       if (autoIn.checked && token === readToken && index === at) advance(1);
     } catch (e) {
