@@ -375,19 +375,32 @@ section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:re
 
   function sentence(text) { return /[.!?:]$/.test(text) ? text : text + "."; }
 
+  // The word for "part" in the section announcement, by primary language subtag.
+  const PART_WORDS = { en: "Part", de: "Teil", gsw: "Teil", fr: "Partie", it: "Parte", es: "Parte", pt: "Parte", nl: "Deel" };
+
+  function deckLanguage() { return deck.language || "en"; }
+
   function readingLines(slide) {
+    const language = deckLanguage();
     const lines = notesLines(slide.notes);
-    const title = slideTitle(slide);
-    // Notes that already start with the title would read it twice.
-    if (title && !slide.notes.toLowerCase().startsWith(title.toLowerCase())) {
-      lines.unshift({ text: sentence(title), id: "title" });
-    }
+    const intro = [];
     // The first slide of a section also announces the section.
     if (slide.section) {
       const part = deck.slides.slice(0, deck.slides.indexOf(slide) + 1).filter((s) => s.section).length;
-      lines.unshift({ text: `Part ${part}. ${sentence(slide.section)}`, id: "section" });
+      const word = PART_WORDS[language.split("-")[0].toLowerCase()];
+      intro.push(word ? `${word} ${part}. ${sentence(slide.section)}` : sentence(slide.section));
     }
-    return lines.slice(0, 100);
+    const title = slideTitle(slide);
+    // Notes that already start with the title would read it twice.
+    if (title && !slide.notes.toLowerCase().startsWith(title.toLowerCase())) intro.push(sentence(title));
+    // The intro goes into the first line. Where the platform guesses the language
+    // per line, a short line of its own is often guessed wrong.
+    if (intro.length) {
+      const text = intro.join(" ");
+      if (lines.length && text.length + 1 + lines[0].text.length <= 2000) lines[0].text = text + " " + lines[0].text;
+      else lines.unshift({ text: text.slice(0, 2000), id: "intro" });
+    }
+    return lines.slice(0, 100).map((line) => ({ ...line, language }));
   }
 
   function highlight(id) {
@@ -424,8 +437,7 @@ section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:re
     const rate = Number(rateIn.value);
     try {
       // Without a language, the platform guesses it per line, which fails on short lines.
-      const language = deck.language || "en";
-      await tts.speak(readingLines(slide), { voice: voiceSel.value, rate, language });
+      await tts.speak(readingLines(slide), { voice: voiceSel.value, rate, language: deckLanguage() });
       // Move on only if this reading finished and nobody navigated or restarted meanwhile.
       if (autoIn.checked && token === readToken && index === at) advance(1);
     } catch (e) {
