@@ -24,13 +24,16 @@ next slide.
    `project/slides/<id>.html` named in the `order` of the index.
 2. Convert the saved files:
 
-       python3 -I import_deck.py --language en <saved folder> \
+       python3 -I import_deck.py --language en \
+           --page <scratch>/index.html <saved folder> \
            <scratch>/deck-data.json https://claude.ai/artifact/<deck id>
 
    The language is the BCP 47 tag of the notes, e.g. `de` or `pt-BR`.
-   The default is `en`.
+   The default is `en`. With `--page`, the script writes a copy of
+   `index.html` whose title names the deck, e.g. "Netcetera · Claude
+   Presenter". The artifact takes its title from there.
 
-3. Publish `index.html` with the `tts` capability and
+3. Publish `<scratch>/index.html` with the `tts` capability and
    `files: {"deck-data.json": "<scratch>/deck-data.json"}`.
 
 The notes come from each slide's `<aside>`. Before the notes, the

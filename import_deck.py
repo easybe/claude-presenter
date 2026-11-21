@@ -10,10 +10,14 @@ The deck folder must hold the files at their served paths:
 
 Usage:
 
-    python3 -I import_deck.py [--language TAG] <deck folder> <output.json> [source url]
+    python3 -I import_deck.py [--language TAG] [--page PAGE.html] \
+        <deck folder> <output.json> [source url]
 
 The language is a BCP 47 tag such as "de" or "pt-BR". The reader reads the
 notes in it. The default is "en".
+
+With --page, the script also writes a copy of index.html whose title names
+the deck. The artifact takes its title from there.
 """
 
 import argparse
@@ -28,6 +32,8 @@ ASIDE_RE = re.compile(r"<aside\b[^>]*>(.*?)</aside>\s*", re.S | re.I)
 TAG_RE = re.compile(r"<[^>]+>")
 BLOB_RE = re.compile(r"""(?:src|poster)=["']/?_blob/""", re.I)
 LANGUAGE_RE = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
+TITLE_RE = re.compile(r"<title>[^<]*</title>")
+PAGE = Path(__file__).resolve().parent / "index.html"
 
 
 def notes_text(raw):
@@ -62,6 +68,8 @@ def main(argv):
                     "deck-data.json for the Claude Presenter.")
     parser.add_argument("-l", "--language", type=language_tag, default="en",
                         help='language of the notes, e.g. "de" (default: en)')
+    parser.add_argument("-p", "--page", type=Path,
+                        help="presenter page to write, titled after the deck")
     parser.add_argument("deck", type=Path, help="downloaded deck folder")
     parser.add_argument("output", type=Path, help="deck-data.json to write")
     parser.add_argument("source", nargs="?", default="",
@@ -126,6 +134,14 @@ def main(argv):
     with_notes = sum(1 for s in slides if s["notes"])
     print(f"{out}: {len(slides)} slides, {with_notes} with notes, "
           f"language {args.language}")
+
+    if args.page:
+        title = f"{data['title']} · Claude Presenter"
+        tag = f"<title>{html.escape(title, quote=False)}</title>"
+        page = TITLE_RE.sub(lambda _: tag, PAGE.read_text(encoding="utf-8"),
+                            count=1)
+        args.page.write_text(page, encoding="utf-8")
+        print(f"{args.page}: {title}")
 
 
 if __name__ == "__main__":
