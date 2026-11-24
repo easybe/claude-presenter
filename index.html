@@ -220,9 +220,11 @@ input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; m
     doc.querySelectorAll(".fragment").forEach((el) => el.classList.add("visible"));
     doc.querySelectorAll("section[hidden]").forEach((el) => el.removeAttribute("hidden"));
     const links = (deck.faces || []).map((h) => `<link rel="stylesheet" href="${esc(h)}">`).join("");
+    // Headings and paragraphs get the defaults of Claude Slides, which has no default margins.
     return `<!doctype html><html><head><meta charset="utf-8">${links}
 <style>html,body{margin:0;width:${canvasW}px;height:${canvasH}px;overflow:hidden}
-section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:relative;overflow:hidden}</style>
+section{box-sizing:border-box;width:${canvasW}px;height:${canvasH}px;position:relative;overflow:hidden}
+h1,h2,h3,p{margin:0;font-weight:600}p{font-weight:400;font-size:32px}h1{font-size:96px}h2{font-size:64px}h3{font-size:44px}</style>
 <style>${deck.css || ""}</style></head><body>${doc.body.innerHTML}</body></html>`;
   }
 
